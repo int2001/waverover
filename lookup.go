@@ -32,9 +32,9 @@ type lookupCacheEntry struct {
 // response. The endpoint resolves DXCC info from a callsign's prefix, and may
 // also return an ITU zone under "dxcc_ituz" (a JSON number).
 type CallsignLookup struct {
-	DXCC   string      `json:"dxcc"`     // country name -> station_country
-	DXCCID string      `json:"dxcc_id"`  // DXCC entity id -> station_dxcc
-	CQZ    string      `json:"dxcc_cqz"` // CQ zone -> station_cq
+	DXCC   string      `json:"dxcc"`      // country name -> station_country
+	DXCCID string      `json:"dxcc_id"`   // DXCC entity id -> station_dxcc
+	CQZ    string      `json:"dxcc_cqz"`  // CQ zone -> station_cq
 	ItuZ   json.Number `json:"dxcc_ituz"` // ITU zone (number) -> station_itu
 }
 
@@ -49,7 +49,13 @@ func (c *WavelogClient) lookupCallsign(callsign string) (*CallsignLookup, error)
 		return e.res, e.err
 	}
 	var resp CallsignLookup
-	if err := c.post("/api/private_lookup", map[string]string{"key": c.APIKey, "callsign": callsign}, &resp); err != nil {
+	var err error
+	if c.usesV2() {
+		resp, err = c.lookupV2Callsign(callsign)
+	} else {
+		err = c.post("/api/private_lookup", map[string]string{"key": c.APIKey, "callsign": callsign}, &resp)
+	}
+	if err != nil {
 		// Transient (network / decode) failure: do not cache so the next
 		// location sharing this callsign still gets a retry.
 		return nil, err

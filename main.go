@@ -11,7 +11,7 @@ import (
 
 func main() {
 	url := flag.String("url", "", "Wavelog base URL or set WAVELOG_URL")
-	key := flag.String("key", "", "Wavelog API key (read+write) or set WAVELOG_API_KEY")
+	key := flag.String("key", "", "Wavelog legacy read+write key or API v2 token (wl2_), or set WAVELOG_API_KEY")
 	dryRun := flag.Bool("dry-run", false, "Show what would happen without making changes")
 	matchFields := flag.String("match-fields", "STATION_CALLSIGN,MY_GRIDSQUARE", "Comma-separated ADIF fields for station location matching")
 	nameFormat := flag.String("name-format", "", "Profile name template with {FIELD} placeholders from match fields, e.g. \"{STATION_CALLSIGN} @ {MY_SOTA_REF}\" (empty: auto from match fields)")
@@ -83,7 +83,15 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to connect to Wavelog: %v\n", err)
 		os.Exit(1)
 	}
-	fmt.Printf("Connected to Wavelog v%s\n\n", version)
+	if client.usesV2() {
+		if err := client.checkV2Scopes(*lookup); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Print("Connected to Wavelog (API v2)\n\n")
+	} else {
+		fmt.Printf("Connected to Wavelog v%s\n\n", version)
+	}
 
 	profiles, returnedFields, err := client.GetStationProfiles()
 	if err != nil {
@@ -123,18 +131,25 @@ func main() {
 	}
 
 	printSummary(allResults)
+	if client.usesV2() && slices.ContainsFunc(allResults, func(r ImportResult) bool { return r.Status == "error" }) {
+		os.Exit(1)
+	}
 }
 
 func printSummary(results []ImportResult) {
 	var imported, dupes, errors int
 	for _, r := range results {
+		count := r.Count
+		if count == 0 {
+			count = 1
+		}
 		switch r.Status {
 		case "imported":
-			imported++
+			imported += count
 		case "dupe":
-			dupes++
+			dupes += count
 		case "error":
-			errors++
+			errors += count
 		}
 	}
 
@@ -151,7 +166,7 @@ func printSummary(results []ImportResult) {
 		fmt.Println("\nDuplicates:")
 		for _, r := range results {
 			if r.Status == "dupe" {
-				fmt.Printf("  %s\n", qsoLabel(r.QSO))
+				fmt.Printf("  %s\n", importResultLabel(r))
 			}
 		}
 	}
@@ -159,10 +174,17 @@ func printSummary(results []ImportResult) {
 		fmt.Println("\nErrors:")
 		for _, r := range results {
 			if r.Status == "error" {
-				fmt.Printf("  %s — %v\n", qsoLabel(r.QSO), r.Err)
+				fmt.Printf("  %s — %v\n", importResultLabel(r), r.Err)
 			}
 		}
 	}
+}
+
+func importResultLabel(r ImportResult) string {
+	if r.QSO == nil {
+		return fmt.Sprintf("%d QSOs (API v2 batch result; individual QSOs not identified)", r.Count)
+	}
+	return qsoLabel(r.QSO)
 }
 
 func qsoLabel(q *QSO) string {
