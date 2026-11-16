@@ -19,6 +19,7 @@ Automated checks cover:
 - Expired/revoked credentials, insufficient scopes, optional lookup scope, rate limiting, malformed envelopes, and redirects. V2 failures never fall back to v1 or print the token.
 - All-success, all-duplicate, mixed-success/error, unparsed, impossible/missing count, and server-error responses. V2 sends each batch only once; legacy duplicate-abort retry behavior is retained.
 - Local dry runs for either credential type make no HTTP requests.
+- Bare hostnames default to HTTPS for flags and environment configuration, explicit HTTP/HTTPS URLs retain installation subpaths, and malformed bases fail before parsing. HTTPS tests trust only a temporary test certificate through `SSL_CERT_FILE`; no TLS verification is disabled. An HTTPS failure never retries over HTTP.
 
 ## Manual integration before submitting a PR
 

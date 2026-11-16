@@ -45,6 +45,11 @@ func TestMain(m *testing.M) {
 
 func run(t *testing.T, serverURL, key string, records []map[string]string, flags ...string) (string, error) {
 	t.Helper()
+	return runWithEnv(t, serverURL, key, records, nil, flags...)
+}
+
+func runWithEnv(t *testing.T, serverURL, key string, records []map[string]string, env []string, flags ...string) (string, error) {
+	t.Helper()
 	path := filepath.Join(t.TempDir(), "activation.adi")
 	var adif strings.Builder
 	for _, record := range records {
@@ -56,11 +61,15 @@ func run(t *testing.T, serverURL, key string, records []map[string]string, flags
 	if err := os.WriteFile(path, []byte(adif.String()), 0600); err != nil {
 		t.Fatal(err)
 	}
-	args := []string{"-url", serverURL, "-key", key}
+	args := []string{"-key", key}
+	if serverURL != "" {
+		args = append(args, "-url", serverURL)
+	}
 	args = append(args, flags...)
 	args = append(args, path)
 	cmd := exec.Command(binary, args...)
 	cmd.Env = append(os.Environ(), "WAVELOG_URL=", "WAVELOG_API_KEY=")
+	cmd.Env = append(cmd.Env, env...)
 	output, err := cmd.CombinedOutput()
 	return string(output), err
 }

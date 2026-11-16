@@ -18,7 +18,7 @@ File arguments support glob wildcards: `*.adi`, `data/**/*.adi`, etc.
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-url` | — | Wavelog base URL (or set `WAVELOG_URL`) |
+| `-url` | — | Wavelog base URL; HTTPS if the scheme is omitted (or set `WAVELOG_URL`) |
 | `-key` | — | Legacy read+write API key or API v2 token (`wl2_…`), or set `WAVELOG_API_KEY` |
 | `-dry-run` | false | Parse and show what would happen, but don't import |
 | `-match-fields` | `STATION_CALLSIGN,MY_GRIDSQUARE` | Comma-separated ADIF fields that define a unique station location |
@@ -54,7 +54,9 @@ waveRover activation.adi
 unset WAVELOG_API_KEY
 ```
 
-Use the final instance URL, including `/index.php` if your installation requires it. The v2 client refuses redirects; use the destination HTTPS URL directly rather than an HTTP-to-HTTPS redirect.
+Use the final instance URL, including `/index.php` or a deployment subdirectory if your installation requires it. A bare hostname such as `log.example.com` defaults to **`https://log.example.com`**. This applies to both `-url` and `WAVELOG_URL`, for legacy keys and v2 tokens. Explicit `http://` and `https://` URLs remain supported; a supplied `-url` takes precedence over the environment variable. Invalid URLs, unsupported schemes, and base URLs containing query strings or fragments are rejected before parsing the log, including in dry runs.
+
+WaveRover **never automatically falls back to HTTP** if HTTPS fails, since that could expose the API credential. For a trusted instance that requires unencrypted HTTP, explicitly use `-url http://host:port` or set `WAVELOG_URL` to that complete HTTP URL. The v2 client refuses redirects; use the destination HTTPS URL directly rather than an HTTP-to-HTTPS redirect.
 
 V2 authentication and required scopes are checked before importing. **`-dry-run` is local parsing/grouping only:** it does not contact Wavelog, check credentials, resolve existing locations, or validate server-side imports.
 
