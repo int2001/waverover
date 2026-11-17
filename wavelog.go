@@ -16,6 +16,7 @@ type WavelogClient struct {
 	APIKey      string
 	client      *http.Client
 	lookupCache map[string]lookupCacheEntry
+	v2Scopes    []string
 }
 
 type StationProfile struct {
@@ -51,14 +52,17 @@ var KnownFields = map[string]string{
 }
 
 type QSOImportResponse struct {
-	Status   string   `json:"status"`
-	Messages []string `json:"messages"`
+	Status   string           `json:"status"`
+	Messages []string         `json:"messages"`
+	Summary  *v2ImportSummary `json:"-"`
 }
 
 type ImportResult struct {
 	QSO    *QSO
 	Status string // "imported", "dupe", "error"
 	Err    error
+	// Count is set for aggregate v2 results, which do not identify individual QSOs.
+	Count int
 }
 
 func NewWavelogClient(baseURL, apiKey string) *WavelogClient {
@@ -71,6 +75,9 @@ func NewWavelogClient(baseURL, apiKey string) *WavelogClient {
 }
 
 func (c *WavelogClient) CheckVersion() (string, error) {
+	if c.usesV2() {
+		return c.checkV2Token()
+	}
 	var resp struct {
 		Status  string `json:"status"`
 		Version string `json:"version"`
@@ -85,6 +92,9 @@ func (c *WavelogClient) CheckVersion() (string, error) {
 }
 
 func (c *WavelogClient) GetStationProfiles() ([]StationProfile, map[string]bool, error) {
+	if c.usesV2() {
+		return c.getV2StationProfiles()
+	}
 	resp, err := c.client.Get(fmt.Sprintf("%s/api/station_info/%s", c.BaseURL, c.APIKey))
 	if err != nil {
 		return nil, nil, fmt.Errorf("fetching station profiles: %w", err)
@@ -160,6 +170,9 @@ func (c *WavelogClient) CreateStationProfile(loc StationLocation, matchFields []
 		payload["station_itu"] = zone
 		fmt.Printf("  Applied ITU zone %s\n", zone)
 	}
+	if c.usesV2() {
+		return c.createV2StationProfile(loc, matchFields, payload)
+	}
 
 	resp, err := c.postRaw("/api/create_station", []map[string]string{payload})
 	if err != nil {
@@ -213,6 +226,9 @@ func (c *WavelogClient) postRaw(path string, payload interface{}) (*http.Respons
 }
 
 func (c *WavelogClient) ImportQSOs(profileID string, adifString string) (*QSOImportResponse, error) {
+	if c.usesV2() {
+		return c.importV2QSOs(profileID, adifString)
+	}
 	jsonData, _ := json.Marshal(map[string]string{
 		"key":                c.APIKey,
 		"station_profile_id": profileID,
@@ -248,6 +264,9 @@ func transformQSO(raw string, fields map[string]string, gridPrecision int) strin
 }
 
 func (c *WavelogClient) ImportQSOsChunked(profileID string, qsos []QSO, gridPrecision int, label string) []ImportResult {
+	if c.usesV2() {
+		return c.importV2QSOsChunked(profileID, qsos, gridPrecision, label)
+	}
 	total := len(qsos)
 	var results []ImportResult
 	processed := 0

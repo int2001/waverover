@@ -2,3 +2,6 @@ waveRover
 waveRover.exe
 out/
 *.test
+.env
+.env.*
+!.env.example
