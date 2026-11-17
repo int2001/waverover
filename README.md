@@ -221,3 +221,7 @@ GOOS=linux GOARCH=amd64 go build -o waveRover .
 GOOS=windows GOARCH=amd64 go build -o waveRover.exe .
 GOOS=darwin GOARCH=arm64 go build -o waveRover .
 ```
+
+## License
+
+AGPL-3.0-only © DJ7NT, Joerg — see [LICENSE](LICENSE).
