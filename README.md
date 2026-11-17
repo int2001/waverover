@@ -38,8 +38,6 @@ In Wavelog: User Menu → API. Both credential types are supported:
   - `logbook:read`, `logbook:write`: link new locations to the active logbook.
   - `lookup:read`: fill missing station data; not required with `-lookup=false`.
 
-The client checks this complete set before starting an import, including when you expect every station/contact to be a duplicate. A token with only `lookup:read`, `qso:read`, `qso:write`, `station:read`, and `station:write` therefore also needs **`logbook:read` and `logbook:write`**. `qso:read` is not required: Wavelog checks contact duplicates during import. Use the expanded token permissions or create a replacement token with the required scopes.
-
 API v2 was introduced in Wavelog 3.1.0, but WaveRover also needs the logbook resource added in 3.2.0. Clubstation tokens additionally need officer-level permissions for station/logbook management. No delete or administrator scopes are required. Choose an expiry and copy the token when Wavelog shows it; it is only displayed once. Renew expired tokens or revoke them from the same API page.
 
 Pass either credential through `-key` or `WAVELOG_API_KEY`. A credential beginning with `wl2_` selects API v2 automatically. Other keys retain the legacy client. V2 requests use the Bearer authorization header, not a key in a URL or request body. Invalid/expired v2 tokens never fall back to legacy authentication.
@@ -59,15 +57,6 @@ Use the final instance URL, including `/index.php` or a deployment subdirectory 
 WaveRover **never automatically falls back to HTTP** if HTTPS fails, since that could expose the API credential. For a trusted instance that requires unencrypted HTTP, explicitly use `-url http://host:port` or set `WAVELOG_URL` to that complete HTTP URL. The v2 client refuses redirects; use the destination HTTPS URL directly rather than an HTTP-to-HTTPS redirect.
 
 V2 authentication and required scopes are checked before importing. **`-dry-run` is local parsing/grouping only:** it does not contact Wavelog, check credentials, resolve existing locations, or validate server-side imports.
-
-If a `wl2_` token produces an error mentioning **`/api/version`**, you are running an older executable, not this branch's v2 client. Rebuild after changing branches or updating the source:
-
-```sh
-go build -o waveRover .
-./waveRover -help
-```
-
-The updated `-key` help mentions API v2 tokens. A non-dry-run v2 connection checks `/api/v2/token`; missing scopes are listed by name before any contacts or locations are written. `go test` builds its own temporary executable and does not replace an existing `./waveRover` binary.
 
 ## Examples
 
@@ -279,14 +268,3 @@ GOOS=linux GOARCH=amd64 go build -o waveRover .
 GOOS=windows GOARCH=amd64 go build -o waveRover.exe .
 GOOS=darwin GOARCH=arm64 go build -o waveRover .
 ```
-
-## Testing
-
-The integration suite lives in [`test/`](test/) and builds the real CLI. It uses temporary Go HTTP servers that check requests and return representative Wavelog API responses. No running Wavelog, Docker, real credentials, or database is needed, and no personal logs are modified.
-
-```bash
-go test -race ./...
-go vet ./...
-```
-
-The tests build a race-instrumented CLI, requiring a native platform supported by Go's race detector and a C compiler. CI runs them on Linux amd64. They cover both API versions, station creation/matching, logbook linkage, lookup enrichment, authentication/scope failures, duplicate handling, and partially successful imports. See [`test/README.md`](test/README.md) for the contract sources and manual integration checks against a disposable Wavelog account.
